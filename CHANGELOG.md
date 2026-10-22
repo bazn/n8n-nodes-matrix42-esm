@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Documentation: release process with staged publishing
+- First release published from GitHub Actions with trusted publishing
+
 ## 0.7.0
 
 - **Renamed** to `@bazulu1/n8n-nodes-matrix42-esm`. Nodes: *Matrix42 ESM* and *Matrix42 ESM Trigger* (types `matrix42Esm` and `matrix42EsmTrigger`); credential *Matrix42 ESM API* (`matrix42EsmApi`). Workflows that use earlier versions have to switch to the new nodes.
