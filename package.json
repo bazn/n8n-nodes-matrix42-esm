@@ -1,6 +1,6 @@
 {
   "name": "@bazulu1/n8n-nodes-matrix42-esm",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "n8n nodes for Matrix42 Enterprise Service Management (ESM): tickets, incidents, service requests, tasks, changes, approvals, workflows, attachments, assets and any data definition",
   "license": "MIT",
   "homepage": "https://github.com/bazn/n8n-nodes-matrix42-esm#readme",
