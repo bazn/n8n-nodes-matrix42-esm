@@ -207,7 +207,7 @@ Releases are built by GitHub Actions and published to npm with **staged publishi
 
 ### One-time setup
 
-1. Publish the first version manually: `npm publish` (npm asks for 2FA in the browser).
+1. Publish the first version manually: `npm publish` (npm asks for 2FA in the browser). *Done for 0.7.0.*
 2. On npmjs.com open the package → **Settings → Trusted Publisher → GitHub Actions** and enter:
 
    | Field | Value |
@@ -235,10 +235,11 @@ Releases are built by GitHub Actions and published to npm with **staged publishi
 5. Wait for the **Publish** workflow in the Actions tab. It checks that the tag matches `package.json`, runs lint and unit tests, stages the version on npm and creates a GitHub release from the changelog section.
 6. **Approve the staged version** with 2FA, either on npmjs.com (package → staged versions) or in the terminal:
    ```bash
-   npm stage list @bazulu1/n8n-nodes-matrix42-esm
-   npm stage approve @bazulu1/n8n-nodes-matrix42-esm@X.Y.Z
+   npm stage list @bazulu1/n8n-nodes-matrix42-esm   # shows the stage ID of the new version
+   npm stage view <stage-id>                         # optional: check the details
+   npm stage approve <stage-id>                      # publishes it (asks for 2FA)
    ```
-   Only now is the version public. Use `npm stage reject …` to discard it.
+   Only now is the version public. Use `npm stage reject <stage-id>` to discard it, or `npm stage download <stage-id>` to inspect the tarball first.
 7. Update the package in n8n: **Settings → Community Nodes**.
 
 ### If something goes wrong

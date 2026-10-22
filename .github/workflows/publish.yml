@@ -44,7 +44,7 @@ jobs:
       # prepublishOnly runs lint and unit tests. Provenance is generated automatically
       # for trusted publishing from public repositories.
       - name: Stage the new version on npm
-        run: npm stage publish --access public
+        run: npm stage publish . --access public
 
       - name: Create GitHub release from the changelog
         env:
