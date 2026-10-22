@@ -257,3 +257,5 @@ Releases are built by GitHub Actions and published to npm with **staged publishi
 ## License
 
 [MIT](LICENSE.md)
+
+Matrix42 and the Matrix42 logo are trademarks of Matrix42. This is an independent community project. It is not affiliated with or endorsed by Matrix42; the logo is used only to identify the integration.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Node and credential icons use the official Matrix42 logo
+
 ## 0.7.1
 
 - Documentation: release process with staged publishing
