@@ -59,11 +59,9 @@ The webhook answers **202 Accepted** right away, so the Matrix42 workflow never 
    - Use *process each compliance rule event for each object* to call n8n once per event.
    - For imports and mass changes, use the option that processes the events conjointly. The workflow then receives several objects in `ObjectContexts`, and the ForEach sends one call per object.
 
-> **Workflow Designer:** in newer Matrix42 versions, the Workflow Designer offers the triggers *On record creation* and *On record update*. These are backed by compliance rules as well. Where available, such a workflow can call n8n directly, without configuring a separate rule.
+> **Workflow Designer:** in newer Matrix42 versions, the Workflow Designer offers the trigger *On record creation*; depending on the version, *On record update* is available as well. These triggers are backed by compliance rules too. Where available, such a workflow can call n8n directly, without configuring a separate rule.
 
 Send **only identifiers** in the payload and read the current data with the Matrix42 ESM node, as the template does. This keeps the payload stable when the Matrix42 data model changes, and the n8n side always works with fresh data.
-
-References: [Execute workflows from actions](https://docs.matrix42.com/en_US/walkthroughs/3504635_execute-workflows-from-actions), [General workflow activities (Http Send)](https://docs.matrix42.com/delivered-activities/3502051_matrix42-workflow-studio-general-workflow-activities), [Automation workflow example with a compliance rule](https://docs.matrix42.com/en_US/1068603_unified-user-experience-knowledgebase/3472776_automation-workflow-activities-example).
 
 ## When to use which
 
@@ -75,3 +73,13 @@ References: [Execute workflows from actions](https://docs.matrix42.com/en_US/wal
 | Events available | Ticket created/updated, journal entry, workflow waiting, any data definition | Anything a compliance rule can detect |
 
 A robust combination is to use the webhook for speed and to run the polling trigger with a long interval as a safety net. Deduplicate by `ObjectId` and `LastChangeDate`, for example in an n8n Data Table.
+
+## Sources
+
+Matrix42 documentation:
+
+- [Execute Workflows from Actions](https://docs.matrix42.com/en_US/walkthroughs/3504635_execute-workflows-from-actions): workflow template, `ObjectContexts` argument and its fields, ForEach pattern
+- [Matrix42 Workflow Studio: General Workflow Activities](https://docs.matrix42.com/delivered-activities/3502051_matrix42-workflow-studio-general-workflow-activities): the *Http Send* activity (method, URI, headers, request data, content type, retry, ignore failure)
+- [Automation Workflow Activities Example](https://docs.matrix42.com/en_US/1068603_unified-user-experience-knowledgebase/3472776_automation-workflow-activities-example): compliance rule with the condition type *Create an Object* and the action *Start Workflow*
+- [Execute Workflows from Compliance Rules](https://help.matrix42.com/030_ESMP/020_WFStudio/Workflows/Walkthroughs/01_Executing_Workflows_from_Compliance_Rules) (previous help center, now redirects to docs.matrix42.com): *Compliance Rules – WF Template* and the integration context *Compliance Rules*
+- [Compliance Rules](https://help.matrix42.com/030_ESMP/010_SolutionBuilder/Services_and_Processes/Compliance_Rules) (previous help center, now redirects to docs.matrix42.com): data-related rules, update triggers and processing options
