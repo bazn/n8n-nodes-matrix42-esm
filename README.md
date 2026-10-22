@@ -33,6 +33,7 @@
 - [Examples](#examples)
 - [Good to know](#good-to-know)
 - [Development](#development)
+- [Releasing](#releasing)
 - [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [License](#license)
 
 ## Installation
@@ -200,7 +201,53 @@ M42_URL=https://m42.example.com M42_API_TOKEN=… npm run test:live
 
 Tests that change data which does not belong to the test run are opt-in. Set `M42_TEST_APPROVAL_TASK`, `M42_TEST_RESUME_BOOKMARK` or `M42_TEST_START_WORKFLOW` to enable them. The API behaviour that the code relies on is documented next to the code.
 
-**Releasing:** update `CHANGELOG.md`, run `npm version <patch|minor|major>` and `git push --follow-tags`. GitHub Actions stages the version on npm; it becomes public after approval with 2FA on npmjs.com or with `npm stage approve`.
+## Releasing
+
+Releases are built by GitHub Actions and published to npm with **staged publishing**: the workflow uploads a new version as *staged*, and it becomes public only after a maintainer approves it with 2FA.
+
+### One-time setup
+
+1. Publish the first version manually: `npm publish` (npm asks for 2FA in the browser).
+2. On npmjs.com open the package → **Settings → Trusted Publisher → GitHub Actions** and enter:
+
+   | Field | Value |
+   |---|---|
+   | Organization or user | `bazn` |
+   | Repository | `n8n-nodes-matrix42-esm` |
+   | Workflow filename | `publish.yml` |
+   | Environment | *(empty)* |
+   | Allowed actions | **npm stage publish** only. Leave *npm publish* unchecked. |
+
+### Every release
+
+1. Make sure `main` is green in CI and pull it: `git pull`.
+2. Add a section for the new version at the top of `CHANGELOG.md`, e.g. `## 0.7.1`, and commit it.
+3. Bump the version. This creates a commit and the tag `vX.Y.Z`:
+   ```bash
+   npm version patch   # bug fixes
+   npm version minor   # new features
+   npm version major   # breaking changes
+   ```
+4. Push the commit and the tag:
+   ```bash
+   git push --follow-tags
+   ```
+5. Wait for the **Publish** workflow in the Actions tab. It checks that the tag matches `package.json`, runs lint and unit tests, stages the version on npm and creates a GitHub release from the changelog section.
+6. **Approve the staged version** with 2FA, either on npmjs.com (package → staged versions) or in the terminal:
+   ```bash
+   npm stage list @bazulu1/n8n-nodes-matrix42-esm
+   npm stage approve @bazulu1/n8n-nodes-matrix42-esm@X.Y.Z
+   ```
+   Only now is the version public. Use `npm stage reject …` to discard it.
+7. Update the package in n8n: **Settings → Community Nodes**.
+
+### If something goes wrong
+
+- **"Tag … does not match package.json version"**: the tag was not created by `npm version`. Delete it (`git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z`), fix the version and tag again.
+- **Lint or tests fail in the workflow:** nothing was published. Fix the problem, then bump to the next patch version; a version number cannot be reused on npm.
+- **A wrong version was approved:** deprecate it with `npm deprecate @bazulu1/n8n-nodes-matrix42-esm@X.Y.Z "reason"` and release a fixed version. Unpublishing is only possible within 72 hours.
+- Optional before a release: run the end-to-end tests against a test instance, locally with `npm run test:live` or with the **Live tests** workflow (needs the repository secrets `M42_URL` and `M42_API_TOKEN`).
+
 
 ## Author
 
