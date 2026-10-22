@@ -1,0 +1,115 @@
+{
+	"name": "ITSM Matrix42 → n8n Event Receiver (Template)",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Matrix42 → n8n in real time\n\nA Matrix42 workflow (trigger e.g. *On record creation/update*) calls this webhook with a JSON body such as\n`{\"ObjectId\": \"<ticket object id>\", \"Event\": \"created\"}`.\n\n1. Create an **Header Auth** credential (e.g. header `X-N8N-Token`) and select it on the webhook.\n2. Configure the same header in the Matrix42 web-service action.\n3. Replace the *Your logic* node.\n\nThe webhook answers **202** immediately, so Matrix42 is not blocked; invalid calls get **400**.\nSee docs/webhook-pattern.md.",
+				"height": 340,
+				"width": 420
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0001",
+			"name": "About this template",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -160]
+		},
+		{
+			"parameters": {
+				"httpMethod": "POST",
+				"path": "matrix42/ticket-event",
+				"authentication": "headerAuth",
+				"responseMode": "responseNode",
+				"options": {}
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0002",
+			"name": "Matrix42 Event Webhook",
+			"type": "n8n-nodes-base.webhook",
+			"typeVersion": 2.2,
+			"position": [0, 0],
+			"webhookId": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b00ff"
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"combinator": "and",
+					"options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+					"conditions": [
+						{
+							"id": "has-object-id",
+							"leftValue": "={{ $json.body.ObjectId }}",
+							"rightValue": "",
+							"operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+						}
+					]
+				},
+				"options": {}
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0003",
+			"name": "Has ObjectId?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2.4,
+			"position": [220, 0]
+		},
+		{
+			"parameters": {
+				"respondWith": "json",
+				"responseBody": "={{ { \"accepted\": true, \"objectId\": $json.body.ObjectId } }}",
+				"options": { "responseCode": 202 }
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0004",
+			"name": "Respond 202 Accepted",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1.5,
+			"position": [460, -100]
+		},
+		{
+			"parameters": {
+				"respondWith": "json",
+				"responseBody": "={{ { \"accepted\": false, \"error\": \"Body must contain ObjectId\" } }}",
+				"options": { "responseCode": 400 }
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0005",
+			"name": "Respond 400 Bad Request",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1.5,
+			"position": [460, 120]
+		},
+		{
+			"parameters": {
+				"resource": "ticket",
+				"operation": "get",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $('Matrix42 Event Webhook').item.json.body.ObjectId }}"
+				},
+				"options": {}
+			},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0006",
+			"name": "Get Ticket",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [680, -100]
+		},
+		{
+			"parameters": {},
+			"id": "4c9f6c1e-1d1a-4d0e-9a51-0e0d4a4b0007",
+			"name": "Your logic",
+			"type": "n8n-nodes-base.noOp",
+			"typeVersion": 1,
+			"position": [900, -100]
+		}
+	],
+	"connections": {
+		"Matrix42 Event Webhook": { "main": [[{ "node": "Has ObjectId?", "type": "main", "index": 0 }]] },
+		"Has ObjectId?": {
+			"main": [
+				[{ "node": "Respond 202 Accepted", "type": "main", "index": 0 }],
+				[{ "node": "Respond 400 Bad Request", "type": "main", "index": 0 }]
+			]
+		},
+		"Respond 202 Accepted": { "main": [[{ "node": "Get Ticket", "type": "main", "index": 0 }]] },
+		"Get Ticket": { "main": [[{ "node": "Your logic", "type": "main", "index": 0 }]] }
+	},
+	"settings": { "executionOrder": "v1" }
+}

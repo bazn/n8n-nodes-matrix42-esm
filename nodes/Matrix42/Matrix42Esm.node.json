@@ -1,0 +1,21 @@
+{
+	"node": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Productivity",
+		"Development"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://www.npmjs.com/package/@bazulu1/n8n-nodes-matrix42-esm#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://www.npmjs.com/package/@bazulu1/n8n-nodes-matrix42-esm"
+			}
+		]
+	}
+}

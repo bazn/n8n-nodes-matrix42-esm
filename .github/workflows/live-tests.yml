@@ -1,0 +1,33 @@
+# End-to-end tests against a real Matrix42 test instance. Run manually from the Actions tab.
+# Requires the repository secrets M42_URL and M42_API_TOKEN (use a test instance; the run creates
+# tickets prefixed with "[n8n-test]" and closes them again).
+name: Live tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-tests
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Run live tests
+        run: npm run test:live
+        env:
+          M42_URL: ${{ secrets.M42_URL }}
+          M42_API_TOKEN: ${{ secrets.M42_API_TOKEN }}
+          M42_TIMEZONE: Europe/Zurich
