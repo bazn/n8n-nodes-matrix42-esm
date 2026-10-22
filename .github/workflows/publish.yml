@@ -1,12 +1,13 @@
-# Publishes to npm when a version tag (e.g. v0.7.1) is pushed, and creates a GitHub release.
+# Stages a new npm version when a version tag (e.g. v0.7.1) is pushed, and creates a GitHub release.
+# The staged version becomes public only after a maintainer approves it with 2FA, on npmjs.com or
+# with `npm stage approve` (staged publishing).
 #
-# One-time setup, choose one:
-#  - Trusted publishing (recommended): on npmjs.com open the package settings → Trusted Publisher →
-#    GitHub Actions, repository bazn/n8n-nodes-matrix42-esm, workflow publish.yml.
-#  - Token: create a granular access token with publish rights for this package on npmjs.com and
-#    store it as the repository secret NPM_TOKEN.
+# One-time setup on npmjs.com: package settings → Trusted Publisher → GitHub Actions,
+# user bazn, repository n8n-nodes-matrix42-esm, workflow publish.yml,
+# allowed action "npm stage publish" only.
 #
-# Release: update CHANGELOG.md, run `npm version <patch|minor|major>` and `git push --follow-tags`.
+# Release: update CHANGELOG.md, run `npm version <patch|minor|major>` and `git push --follow-tags`,
+# then approve the staged version.
 name: Publish
 
 on:
@@ -38,13 +39,12 @@ jobs:
           fi
 
       - run: npm ci
-      - run: npm install -g npm@latest # trusted publishing needs a recent npm
+      - run: npm install -g npm@latest # trusted and staged publishing need a recent npm
 
-      # prepublishOnly runs lint and unit tests
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # prepublishOnly runs lint and unit tests. Provenance is generated automatically
+      # for trusted publishing from public repositories.
+      - name: Stage the new version on npm
+        run: npm stage publish --access public
 
       - name: Create GitHub release from the changelog
         env:
@@ -52,4 +52,5 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '$0 == "## " v {found=1; next} found && /^## / {exit} found {print}' CHANGELOG.md > release-notes.md
+          printf '\n---\nThe npm package becomes available once the staged version has been approved.\n' >> release-notes.md
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md

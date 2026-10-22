@@ -200,7 +200,7 @@ M42_URL=https://m42.example.com M42_API_TOKEN=… npm run test:live
 
 Tests that change data which does not belong to the test run are opt-in. Set `M42_TEST_APPROVAL_TASK`, `M42_TEST_RESUME_BOOKMARK` or `M42_TEST_START_WORKFLOW` to enable them. The API behaviour that the code relies on is documented next to the code.
 
-**Releasing:** update `CHANGELOG.md`, run `npm version <patch|minor|major>`, and push the tag. GitHub Actions then publishes to npm with provenance.
+**Releasing:** update `CHANGELOG.md`, run `npm version <patch|minor|major>` and `git push --follow-tags`. GitHub Actions stages the version on npm; it becomes public after approval with 2FA on npmjs.com or with `npm stage approve`.
 
 ## Author
 
