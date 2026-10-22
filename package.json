@@ -25,7 +25,7 @@
     "lint:fix": "n8n-node lint --fix",
     "release": "n8n-node release",
     "prepublishOnly": "npm run lint && npm test",
-    "test": "n8n-node build && node --test test/unit/",
+    "test": "n8n-node build && node --test test/unit/*.test.cjs",
     "test:live": "n8n-node build && node test/live/run.cjs"
   },
   "files": [
