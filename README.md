@@ -145,6 +145,7 @@ A ticket can be selected from a searchable list, by **ticket number** (e.g. `INC
 | Approvals in chat | **Approval** Get Many (open) → send to Teams or Slack → **Approval** Decide |
 | Hand over to n8n and back | Matrix42 workflow waits at a trigger activity → **Trigger: Workflow Waiting** → do the work in n8n → **Workflow** Resume |
 | Asset change notifications | **Trigger: Object Created or Updated** on `SPSComputerClassBase` with an ASQL filter → notify the owner |
+| AI ticket triage | Import [examples/matrix42-ai-ticket-triage.json](examples/matrix42-ai-ticket-triage.json): Claude classifies new tickets, adds an internal note and posts suspected major incidents to Microsoft Teams |
 | Real-time events | Import [examples/matrix42-webhook-receiver.json](examples/matrix42-webhook-receiver.json) and follow the [webhook pattern](docs/webhook-pattern.md) |
 
 ## Good to know

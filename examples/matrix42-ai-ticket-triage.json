@@ -1,0 +1,770 @@
+{
+	"name": "Triage new Matrix42 tickets with AI and alert Teams on major incidents",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Triage new Matrix42 tickets with AI and alert Teams on major incidents\n\n### How it works\n1. Checks Matrix42 every minute for new, still **unclassified tickets**.\n2. Loads all Matrix42 categories and lets Claude decide: incident or service request, category, impact, urgency, a suggested solution and whether it might be a major incident, together with a confidence score.\n3. Above the confidence threshold, the ticket is transformed into an incident or service request with the chosen category, and impact and urgency are set.\n4. Every ticket gets an internal journal note with the AI summary, suggested solution and reasoning. Below the threshold nothing is changed, and the note asks the service desk to classify the ticket manually.\n5. Suspected major incidents are proposed as major incident in Matrix42 and posted to a Microsoft Teams channel.\n\n### Requirements\n- The community node **@bazulu1/n8n-nodes-matrix42-esm** (0.7.3 or later)\n- A Matrix42 ESM API token for a user who may read categories and edit tickets\n- An Anthropic API key\n- A Microsoft Teams account with access to the alert channel\n\n### How to set up\n1. Install the community node under **Settings → Community nodes**.\n2. Create a **Matrix42 ESM API** credential (Matrix42 URL and API token) and select it in the trigger and in all Matrix42 ESM nodes.\n3. Create an **Anthropic** credential and select it in both Claude nodes.\n4. Create a **Microsoft Teams OAuth2** credential and pick the team and channel in **Alert Teams channel**.\n5. Adjust **Configure triage**, run once with a test ticket, then activate.\n\n### How to customize the workflow\n- Raise `confidenceThreshold` to apply fewer classifications automatically, or lower it to apply more.\n- Set `noteLanguage` to the language of your service desk, for example `German`.\n- Add your own rules to the system prompt in **Analyze ticket with Claude**, for example which services belong to which category.\n- Swap Microsoft Teams for Slack, email or your on-call tool.\n\n\n---\n### Need help?\nBuilt by [xamplo](https://www.xamplo.com), automation experts for ITSM/ESM integrations.\n\nWant AI triage tailored to your Matrix42 categories and processes? Get in touch at [xamplo.com](https://www.xamplo.com).",
+				"height": 1220,
+				"width": 620
+			},
+			"id": "b13570d6-fcf3-462f-9d93-e34d99b911a0",
+			"name": "Overview",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-720,
+				-480
+			]
+		},
+		{
+			"parameters": {
+				"pollTimes": {
+					"item": [
+						{
+							"mode": "everyMinute"
+						}
+					]
+				},
+				"ticketTypes": [
+					"ticket"
+				],
+				"filters": {},
+				"options": {}
+			},
+			"id": "a4dbae13-d037-4621-ac72-f41f7943e4ee",
+			"name": "New unclassified ticket",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42EsmTrigger",
+			"typeVersion": 1,
+			"position": [
+				0,
+				96
+			]
+		},
+		{
+			"parameters": {
+				"assignments": {
+					"assignments": [
+						{
+							"id": "confidence-threshold",
+							"name": "confidenceThreshold",
+							"value": 0.7,
+							"type": "number"
+						},
+						{
+							"id": "note-language",
+							"name": "noteLanguage",
+							"value": "English",
+							"type": "string"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			},
+			"id": "1c247815-beb7-4b12-8afe-9afab9407084",
+			"name": "Configure triage",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.5,
+			"position": [
+				384,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"mode": "combine",
+				"combineBy": "combineAll",
+				"options": {}
+			},
+			"id": "4debdaa2-22f1-4271-83f8-a8bb89eebe4c",
+			"name": "Combine ticket and categories",
+			"type": "n8n-nodes-base.merge",
+			"typeVersion": 3.2,
+			"position": [
+				800,
+				224
+			]
+		},
+		{
+			"parameters": {
+				"resource": "object",
+				"className": {
+					"__rl": true,
+					"mode": "name",
+					"value": "SPSScCategoryClassBase"
+				},
+				"returnAll": true,
+				"columns": "Name",
+				"sort": "Name ASC"
+			},
+			"id": "2fba6d48-74c6-41be-8ef6-8a02c58c93f7",
+			"name": "Load categories",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				272,
+				320
+			],
+			"executeOnce": true,
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"aggregate": "aggregateAllItemData",
+				"destinationFieldName": "categories",
+				"include": "specifiedFields",
+				"fieldsToInclude": "ID, Name",
+				"options": {}
+			},
+			"id": "764e596a-2ef2-418a-b736-964a6c1993a6",
+			"name": "Collect categories",
+			"type": "n8n-nodes-base.aggregate",
+			"typeVersion": 1,
+			"position": [
+				496,
+				320
+			]
+		},
+		{
+			"parameters": {
+				"promptType": "define",
+				"text": "=Triage this new Matrix42 service desk ticket.\n\nTicket number: {{ $(\"Combine ticket and categories\").item.json.TicketNumber }}\nSubject: {{ $(\"Combine ticket and categories\").item.json.Subject }}\nDescription:\n{{ $(\"Combine ticket and categories\").item.json.Description || \"(no description)\" }}\n\nAvailable categories (ID | name):\n{{ $(\"Combine ticket and categories\").item.json.categories.map(category => category.ID + \" | \" + category.Name).join(\"\\n\") }}\n\nWrite summary, suggestedSolution, majorIncidentReason and reasoning in {{ $(\"Combine ticket and categories\").item.json.noteLanguage }}.",
+				"hasOutputParser": true,
+				"messages": {
+					"messageValues": [
+						{
+							"message": "You are an experienced IT service desk dispatcher. You classify incoming tickets for a Matrix42 Enterprise Service Management system.\n\nRules:\n- ticketType is \"incident\" when something that worked is broken or degraded, and \"serviceRequest\" when someone asks for something new, for access, or for information.\n- categoryId must be one of the IDs from the provided list, copied exactly. Pick the most specific category that fits.\n- impact: 1 = one person, 2 = a team or department, 3 = the whole company.\n- urgency: 1 = partial outage or workaround available, 2 = malfunction that blocks work, 3 = total outage.\n- majorIncidentSuspected is true only for incidents with a widespread outage of a business-critical service or many affected users. Be conservative.\n- confidence reflects how sure you are about ticketType and category together (0 to 1). Use a low value when the ticket is vague.\n- suggestedSolution gives the agent concrete first steps. Do not invent facts about the environment."
+						}
+					]
+				},
+				"batching": {}
+			},
+			"id": "5d0e6d92-4949-4675-afe5-628c596023cf",
+			"name": "Analyze ticket with Claude",
+			"type": "@n8n/n8n-nodes-langchain.chainLlm",
+			"typeVersion": 1.9,
+			"position": [
+				1056,
+				224
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"model": {
+					"__rl": true,
+					"mode": "list",
+					"value": "claude-sonnet-5",
+					"cachedResultName": "Claude Sonnet 5"
+				},
+				"options": {
+					"maxTokensToSample": 2000
+				}
+			},
+			"id": "f577a8a4-ec25-46eb-bc02-de8ce2333ceb",
+			"name": "Claude",
+			"type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+			"typeVersion": 1.6,
+			"position": [
+				1024,
+				448
+			]
+		},
+		{
+			"parameters": {
+				"schemaType": "manual",
+				"inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"ticketType\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"incident\",\n        \"serviceRequest\"\n      ],\n      \"description\": \"incident = something is broken or degraded; serviceRequest = a request for something new, access or information\"\n    },\n    \"categoryId\": {\n      \"type\": \"string\",\n      \"description\": \"ID of the best matching category, copied exactly from the list\"\n    },\n    \"categoryName\": {\n      \"type\": \"string\"\n    },\n    \"impact\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 3,\n      \"description\": \"1 = one person, 2 = a team or department, 3 = the whole company\"\n    },\n    \"urgency\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 3,\n      \"description\": \"1 = partial outage, 2 = malfunction, 3 = total outage\"\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"One sentence that a dispatcher can read at a glance\"\n    },\n    \"suggestedSolution\": {\n      \"type\": \"string\",\n      \"description\": \"First troubleshooting steps or fulfilment hints for the agent\"\n    },\n    \"majorIncidentSuspected\": {\n      \"type\": \"boolean\"\n    },\n    \"majorIncidentReason\": {\n      \"type\": \"string\",\n      \"description\": \"Why this might be a major incident; empty when not suspected\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"minimum\": 0,\n      \"maximum\": 1\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of the classification\"\n    }\n  },\n  \"required\": [\n    \"ticketType\",\n    \"categoryId\",\n    \"categoryName\",\n    \"impact\",\n    \"urgency\",\n    \"summary\",\n    \"suggestedSolution\",\n    \"majorIncidentSuspected\",\n    \"majorIncidentReason\",\n    \"confidence\",\n    \"reasoning\"\n  ]\n}",
+				"autoFix": true
+			},
+			"id": "fd8d3a2f-b52b-492a-ae21-15890ee3b665",
+			"name": "Triage result schema",
+			"type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+			"typeVersion": 1.3,
+			"position": [
+				1152,
+				448
+			]
+		},
+		{
+			"parameters": {
+				"model": {
+					"__rl": true,
+					"mode": "list",
+					"value": "claude-sonnet-5",
+					"cachedResultName": "Claude Sonnet 5"
+				},
+				"options": {
+					"maxTokensToSample": 2000
+				}
+			},
+			"id": "b879f859-e449-4304-86cf-fe040edb38ba",
+			"name": "Claude (output fixer)",
+			"type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+			"typeVersion": 1.6,
+			"position": [
+				1232,
+				656
+			]
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "loose",
+						"version": 2
+					},
+					"conditions": [
+						{
+							"leftValue": "={{ $(\"Analyze ticket with Claude\").item.json.output.confidence }}",
+							"rightValue": "={{ $(\"Combine ticket and categories\").item.json.confidenceThreshold }}",
+							"operator": {
+								"type": "number",
+								"operation": "gte"
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			},
+			"id": "5a73ce29-7f8e-459d-b47a-8017a0425454",
+			"name": "Confident enough?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2.4,
+			"position": [
+				1520,
+				224
+			]
+		},
+		{
+			"parameters": {
+				"operation": "transform",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $(\"Combine ticket and categories\").item.json.ObjectId }}"
+				},
+				"targetType": "={{ $(\"Analyze ticket with Claude\").item.json.output.ticketType }}",
+				"transformOptions": {
+					"category": {
+						"__rl": true,
+						"mode": "id",
+						"value": "={{ $(\"Analyze ticket with Claude\").item.json.output.categoryId }}"
+					},
+					"initDefaultValues": true
+				}
+			},
+			"id": "cffc435c-fefc-4330-af1e-1279e6ff3c33",
+			"name": "Reclassify ticket",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				1328,
+				240
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict",
+						"version": 2
+					},
+					"conditions": [
+						{
+							"leftValue": "={{ $(\"Analyze ticket with Claude\").item.json.output.ticketType }}",
+							"rightValue": "incident",
+							"operator": {
+								"type": "string",
+								"operation": "equals"
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			},
+			"id": "cff02d6e-0643-4cff-8598-48daa850bcb6",
+			"name": "Incident?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2.4,
+			"position": [
+				1552,
+				240
+			]
+		},
+		{
+			"parameters": {
+				"resource": "incident",
+				"operation": "update",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $(\"Combine ticket and categories\").item.json.ObjectId }}"
+				},
+				"updateFields": {
+					"impact": "={{ $(\"Analyze ticket with Claude\").item.json.output.impact }}",
+					"urgency": "={{ $(\"Analyze ticket with Claude\").item.json.output.urgency }}"
+				}
+			},
+			"id": "59d9d94b-9585-47a0-b3bc-9ccc98eb384d",
+			"name": "Set incident impact and urgency",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				1776,
+				144
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {},
+			"id": "b79c667e-1c16-41e4-a56f-a0a6df6730cb",
+			"name": "Classification applied",
+			"type": "n8n-nodes-base.noOp",
+			"typeVersion": 1,
+			"position": [
+				2000,
+				240
+			]
+		},
+		{
+			"parameters": {
+				"resource": "serviceRequest",
+				"operation": "update",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $(\"Combine ticket and categories\").item.json.ObjectId }}"
+				},
+				"updateFields": {
+					"impact": "={{ $(\"Analyze ticket with Claude\").item.json.output.impact }}",
+					"urgency": "={{ $(\"Analyze ticket with Claude\").item.json.output.urgency }}"
+				}
+			},
+			"id": "5d516b8d-42dc-459e-be9a-b6edc04216d5",
+			"name": "Set request impact and urgency",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				1776,
+				336
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"resource": "journal",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $(\"Combine ticket and categories\").item.json.ObjectId }}"
+				},
+				"comments": "={{ (() => {\n  // Internal note for the service desk with everything the AI concluded\n  const result = $(\"Analyze ticket with Claude\").item.json.output;\n  const threshold = $(\"Combine ticket and categories\").item.json.confidenceThreshold;\n  const applied = result.confidence >= threshold;\n  return [\n    \"AI triage\",\n    \"Summary: \" + result.summary,\n    \"Suggested solution: \" + result.suggestedSolution,\n    \"Classification: \" + (result.ticketType === \"incident\" ? \"Incident\" : \"Service request\") + \", category \" + result.categoryName + \", impact \" + result.impact + \", urgency \" + result.urgency,\n    \"Confidence: \" + Math.round(result.confidence * 100) + \"% (\" + (applied ? \"applied automatically\" : \"below \" + Math.round(threshold * 100) + \"%, not applied, please classify manually\") + \")\",\n    result.majorIncidentSuspected ? \"Possible major incident: \" + result.majorIncidentReason : \"\",\n    \"Reasoning: \" + result.reasoning\n  ].filter(Boolean).join(\"\\n\");\n})() }}",
+				"journalOptions": {
+					"visibleInPortal": false
+				}
+			},
+			"id": "ccba1d3a-1912-4853-b199-54636ebbd10d",
+			"name": "Add AI triage note",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				1856,
+				224
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "loose",
+						"version": 2
+					},
+					"conditions": [
+						{
+							"leftValue": "={{ $(\"Analyze ticket with Claude\").item.json.output.majorIncidentSuspected }}",
+							"rightValue": true,
+							"operator": {
+								"type": "boolean",
+								"operation": "equals"
+							}
+						},
+						{
+							"leftValue": "={{ $(\"Analyze ticket with Claude\").item.json.output.ticketType }}",
+							"rightValue": "incident",
+							"operator": {
+								"type": "string",
+								"operation": "equals"
+							}
+						},
+						{
+							"leftValue": "={{ $(\"Analyze ticket with Claude\").item.json.output.confidence }}",
+							"rightValue": "={{ $(\"Combine ticket and categories\").item.json.confidenceThreshold }}",
+							"operator": {
+								"type": "number",
+								"operation": "gte"
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			},
+			"id": "779297a6-9d61-424b-9ee4-2583e16eb2f9",
+			"name": "Major incident suspected?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2.4,
+			"position": [
+				2080,
+				224
+			]
+		},
+		{
+			"parameters": {
+				"resource": "incident",
+				"operation": "proposeMajor",
+				"ticketId": {
+					"__rl": true,
+					"mode": "id",
+					"value": "={{ $(\"Combine ticket and categories\").item.json.ObjectId }}"
+				},
+				"majorOptions": {
+					"comments": "=AI triage: {{ $(\"Analyze ticket with Claude\").item.json.output.majorIncidentReason }}"
+				}
+			},
+			"id": "0471b9c6-5928-4a6d-8e82-7180d558a3c8",
+			"name": "Propose major incident",
+			"type": "@bazulu1/n8n-nodes-matrix42-esm.matrix42Esm",
+			"typeVersion": 1,
+			"position": [
+				2304,
+				224
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000
+		},
+		{
+			"parameters": {
+				"resource": "channelMessage",
+				"teamId": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"channelId": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"contentType": "html",
+				"message": "=<h3>Possible major incident: {{ $(\"Combine ticket and categories\").item.json.TicketNumber }}</h3><p><b>{{ $(\"Combine ticket and categories\").item.json.Subject }}</b></p><p>{{ $(\"Analyze ticket with Claude\").item.json.output.summary }}</p><p><b>Why:</b> {{ $(\"Analyze ticket with Claude\").item.json.output.majorIncidentReason }}</p><p><b>Impact:</b> {{ $(\"Analyze ticket with Claude\").item.json.output.impact }} · <b>Urgency:</b> {{ $(\"Analyze ticket with Claude\").item.json.output.urgency }} · <b>Confidence:</b> {{ Math.round($(\"Analyze ticket with Claude\").item.json.output.confidence * 100) }}%</p><p>The incident was proposed as major incident in Matrix42. Please review the proposal.</p>",
+				"options": {
+					"includeLinkToWorkflow": false
+				}
+			},
+			"id": "6f8f4593-a49b-4482-ba57-b6f8301dc6bf",
+			"name": "Alert Teams channel",
+			"type": "n8n-nodes-base.microsoftTeams",
+			"typeVersion": 2,
+			"position": [
+				2528,
+				224
+			],
+			"retryOnFail": true,
+			"maxTries": 3,
+			"waitBetweenTries": 5000,
+			"webhookId": "6c174dbd-e3d0-4a40-95a6-738f6a8e3ad0"
+		}
+	],
+	"connections": {
+		"New unclassified ticket": {
+			"main": [
+				[
+					{
+						"node": "Configure triage",
+						"type": "main",
+						"index": 0
+					},
+					{
+						"node": "Load categories",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Configure triage": {
+			"main": [
+				[
+					{
+						"node": "Combine ticket and categories",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Combine ticket and categories": {
+			"main": [
+				[
+					{
+						"node": "Analyze ticket with Claude",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Load categories": {
+			"main": [
+				[
+					{
+						"node": "Collect categories",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Collect categories": {
+			"main": [
+				[
+					{
+						"node": "Combine ticket and categories",
+						"type": "main",
+						"index": 1
+					}
+				]
+			]
+		},
+		"Analyze ticket with Claude": {
+			"main": [
+				[
+					{
+						"node": "Confident enough?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Claude": {
+			"ai_languageModel": [
+				[
+					{
+						"node": "Analyze ticket with Claude",
+						"type": "ai_languageModel",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Triage result schema": {
+			"ai_outputParser": [
+				[
+					{
+						"node": "Analyze ticket with Claude",
+						"type": "ai_outputParser",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Claude (output fixer)": {
+			"ai_languageModel": [
+				[
+					{
+						"node": "Triage result schema",
+						"type": "ai_languageModel",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Confident enough?": {
+			"main": [
+				[
+					{
+						"node": "Reclassify ticket",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Add AI triage note",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Reclassify ticket": {
+			"main": [
+				[
+					{
+						"node": "Incident?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Incident?": {
+			"main": [
+				[
+					{
+						"node": "Set incident impact and urgency",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Set request impact and urgency",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Set incident impact and urgency": {
+			"main": [
+				[
+					{
+						"node": "Classification applied",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Classification applied": {
+			"main": [
+				[
+					{
+						"node": "Add AI triage note",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Set request impact and urgency": {
+			"main": [
+				[
+					{
+						"node": "Classification applied",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Add AI triage note": {
+			"main": [
+				[
+					{
+						"node": "Major incident suspected?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Major incident suspected?": {
+			"main": [
+				[
+					{
+						"node": "Propose major incident",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Propose major incident": {
+			"main": [
+				[
+					{
+						"node": "Alert Teams channel",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"nodeGroups": [
+		{
+			"id": "b4853738-d4b1-4897-b767-e9e0c7f43149",
+			"name": "Load categories",
+			"nodeNames": [
+				"Load categories",
+				"Collect categories"
+			],
+			"description": "Reads all Matrix42 categories once per run so the AI can pick a valid category ID."
+		},
+		{
+			"id": "cc53bac3-2073-4e5f-aacd-2427f310d284",
+			"name": "Classify with AI",
+			"nodeNames": [
+				"Combine ticket and categories",
+				"Analyze ticket with Claude",
+				"Claude",
+				"Claude (output fixer)",
+				"Triage result schema",
+				"Confident enough?"
+			],
+			"description": "Claude proposes type, category, impact, urgency, a solution and a major-incident flag with a confidence score."
+		},
+		{
+			"id": "11a45efd-84a6-448e-95d8-a172ca5d47b9",
+			"name": "Apply classification",
+			"nodeNames": [
+				"Reclassify ticket",
+				"Incident?",
+				"Set incident impact and urgency",
+				"Set request impact and urgency",
+				"Classification applied"
+			],
+			"description": "Only above the confidence threshold: transforms the ticket and sets impact and urgency."
+		},
+		{
+			"id": "295e045e-df9f-46be-8565-1523ed2631ef",
+			"name": "Document and escalate",
+			"nodeNames": [
+				"Add AI triage note",
+				"Major incident suspected?",
+				"Propose major incident",
+				"Alert Teams channel"
+			],
+			"description": "Adds an internal AI note to the ticket; suspected major incidents are proposed and posted to Teams."
+		}
+	],
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
