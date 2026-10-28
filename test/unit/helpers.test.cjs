@@ -67,6 +67,21 @@ test('simplifyTicketRow labels the ticket type and drops bookkeeping fields', ()
 	assert.deepEqual(row, { ID: '1', TypeId: 'fe098714-ac94-47f1-9724-df5bac86b3fb', TicketType: 'Incident' });
 });
 
+test('simplifyTicketRow derives Description from DescriptionHTML only when it is empty', () => {
+	const html = '<p>Pl&ouml;tzlich steht alles.</p> <p>&nbsp;</p>';
+	assert.equal(g.simplifyTicketRow({ Description: null, DescriptionHTML: '<p>Line one<br />line &amp; two</p>' }).Description, 'Line one\nline & two');
+	assert.equal(g.simplifyTicketRow({ Description: 'plain', DescriptionHTML: html }).Description, 'plain');
+	assert.equal(g.simplifyTicketRow({ Description: null, DescriptionHTML: null }).Description, null);
+	assert.equal(g.simplifyTicketRow({ Description: '', DescriptionHTML: html }).DescriptionHTML, html);
+});
+
+test('htmlToText turns Matrix42 rich text into readable plain text', () => {
+	assert.equal(g.htmlToText('<p>A</p>\r\n<p>&nbsp;</p><p>B&#228;&#x20AC;</p>'), 'A\n\nBä€');
+	assert.equal(g.htmlToText('<ul><li>one</li><li>two</li></ul><style>p{}</style>'), '- one\n- two');
+	assert.equal(g.htmlToText('a &unknown; b'), 'a &unknown; b');
+	assert.equal(g.htmlToText('Gr&uuml;&szlig;e &Ouml;l &NBSP;x'), 'Grüße Öl  x');
+});
+
 test('typeCondition supports a fragment prefix', () => {
 	assert.equal(typeCondition([]), undefined);
 	assert.equal(

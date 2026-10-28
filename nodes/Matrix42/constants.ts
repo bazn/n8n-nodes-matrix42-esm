@@ -114,6 +114,7 @@ export const TICKET_COLUMNS = [
 	'TicketNumber',
 	'Subject',
 	'Description',
+	'DescriptionHTML',
 	'T(SPSCommonClassBase).State as State',
 	'Priority',
 	'Impact',

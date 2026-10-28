@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3
+
+- **Fix:** ticket outputs (Get, Get Many, trigger) now contain the description of tickets entered in the Matrix42 web UI. Matrix42 fills only `DescriptionHTML` for them, so `Description` was empty. `DescriptionHTML` is returned as well, and an empty `Description` is filled with its plain text.
+
 ## 0.7.2
 
 - Node and credential icons use the official Matrix42 logo

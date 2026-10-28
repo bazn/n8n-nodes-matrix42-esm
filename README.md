@@ -86,7 +86,7 @@ Choose the method under **Authentication** on the node.
 | **Journal** | Add an entry (optionally visible in the portal), Get Many |
 | **Attachment** | Upload, Get Many, Download, Delete, on tickets or on any object |
 
-A ticket can be selected from a searchable list, by **ticket number** (e.g. `INC00123`) or by **object ID**. Ticket outputs always contain `ObjectId` and `TicketType`.
+A ticket can be selected from a searchable list, by **ticket number** (e.g. `INC00123`) or by **object ID**. Ticket outputs always contain `ObjectId` and `TicketType`. `DescriptionHTML` holds the rich-text description as stored in Matrix42; `Description` is plain text and is derived from `DescriptionHTML` when Matrix42 left it empty, which is the case for tickets entered in the web UI.
 
 ### Processes
 

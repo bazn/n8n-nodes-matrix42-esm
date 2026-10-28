@@ -283,8 +283,67 @@ export function simplifyRow(row: IDataObject): IDataObject {
 	return typeId === undefined ? rest : { ...rest, TypeId: typeId };
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+	nbsp: ' ',
+	amp: '&',
+	lt: '<',
+	gt: '>',
+	quot: '"',
+	apos: "'",
+	auml: 'ä',
+	ouml: 'ö',
+	uuml: 'ü',
+	Auml: 'Ä',
+	Ouml: 'Ö',
+	Uuml: 'Ü',
+	szlig: 'ß',
+	euro: '€',
+	ndash: '–',
+	mdash: '—',
+	hellip: '…',
+	bdquo: '„',
+	ldquo: '“',
+	rdquo: '”',
+	sbquo: '‚',
+	lsquo: '‘',
+	rsquo: '’',
+	laquo: '«',
+	raquo: '»',
+	acute: '´',
+	copy: '©',
+	reg: '®',
+};
+
+/** Converts the rich-text HTML Matrix42 stores (e.g. DescriptionHTML) to plain text. */
+export function htmlToText(html: string): string {
+	return html
+		.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+		.replace(/<!--[\s\S]*?-->/g, '')
+		.replace(/<br\s*\/?>/gi, '\n')
+		.replace(/<li[^>]*>/gi, '- ')
+		.replace(/<\/(p|div|li|h[1-6]|tr|blockquote|pre)>/gi, '\n')
+		.replace(/<[^>]+>/g, '')
+		.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, name: string) => {
+			if (name[0] === '#') {
+				const code = name[1].toLowerCase() === 'x' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+				return Number.isNaN(code) ? entity : String.fromCodePoint(code);
+			}
+			return HTML_ENTITIES[name] ?? HTML_ENTITIES[name.toLowerCase()] ?? entity;
+		})
+		.replace(/\u00a0/g, ' ')
+		.replace(/\r\n?/g, '\n')
+		.replace(/[ \t]+$/gm, '')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+}
+
 export function simplifyTicketRow(row: IDataObject): IDataObject {
 	const simplified = simplifyRow(row);
+	// Tickets entered in the UI only fill DescriptionHTML, so derive the plain text from it.
+	const html = simplified.DescriptionHTML;
+	if (typeof html === 'string' && html.trim() && !String(simplified.Description ?? '').trim()) {
+		simplified.Description = htmlToText(html);
+	}
 	return { ...simplified, TicketType: TICKET_TYPE_BY_ID[simplified.TypeId as string] ?? null };
 }
 
